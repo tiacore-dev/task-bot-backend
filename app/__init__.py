@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from tortoise.contrib.fastapi import register_tortoise
 from app.logger import setup_logger
 from app.routes import register_routes
@@ -9,9 +9,17 @@ from app.config import Settings
 def create_app() -> FastAPI:
     app = FastAPI()
 
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Или указать твой Netlify-домен
+        allow_credentials=True,
+        # Разрешаем все методы (POST, GET, OPTIONS и т.д.)
+        allow_methods=["*"],
+        allow_headers=["*"],  # Разрешаем все заголовки
+    )
+
 # Подключение static и templates
 
-    app.mount("/static", StaticFiles(directory="app/static"), name="static")
     app.state.settings = Settings()
    # Конфигурация Tortoise ORM
     register_tortoise(
