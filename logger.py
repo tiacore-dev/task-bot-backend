@@ -1,5 +1,6 @@
 import sys
 from loguru import logger
+from app.database.models import UserActionLog
 
 
 def setup_logger():
@@ -20,3 +21,15 @@ def setup_logger():
     )
 
 # Если хотите, чтобы логгер вел себя как синглтон:
+
+
+async def log_user_action(user_id: str, action: str, task_id: str = None):
+    """
+    Логирует действия пользователей в Telegram-приложении.
+    """
+    log_entry = await UserActionLog.create(
+        user_id=user_id,
+        action=action,
+        task_id=task_id
+    )
+    print(f"✅ Лог добавлен: {log_entry}")

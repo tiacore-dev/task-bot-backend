@@ -1,4 +1,5 @@
 import uuid
+import bcrypt
 from tortoise import fields
 from tortoise.models import Model
 
@@ -6,15 +7,38 @@ from tortoise.models import Model
 
 
 class UserRole(Model):
-    # Например: "admin", "executor"
+    class Meta:
+        table = "user_roles"
+
     role_id = fields.CharField(pk=True, max_length=50)
-    name = fields.CharField(max_length=50, unique=True)
+    role_name = fields.CharField(max_length=50, unique=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
 # Пользователи
 
 
+async def set_password(password: str):
+    password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    return password_hash
+
+
+class AdminUser(Model):
+    class Meta:
+        table = "admin_users"
+
+    admin_id = fields.UUIDField(pk=True, default=uuid.uuid4)
+    username = fields.CharField(max_length=50, unique=True)
+    password_hash = fields.CharField(max_length=255)
+    created_at = fields.DatetimeField(auto_now_add=True)
+
+    def check_password(self, password: str) -> bool:
+        return bcrypt.checkpw(password.encode(), self.password_hash.encode())
+
+
 class User(Model):
+    class Meta:
+        table = "users"
+
     user_id = fields.UUIDField(pk=True, default=uuid.uuid4)
     telegram_id = fields.BigIntField(unique=True)
     username = fields.CharField(max_length=255, null=True)
@@ -28,57 +52,71 @@ class User(Model):
 
 
 class UserAccount(Model):
+    class Meta:
+        table = "user_accounts"
+
     account_id = fields.BigIntField(pk=True)
     user = fields.ForeignKeyField("models.User", related_name="accounts")
-    # YouTube, Twitter, Telegram и т. д.
     platform = fields.CharField(max_length=100)
     account_name = fields.CharField(max_length=255)
-    # ID из соцсети, если доступно API
-    account_id = fields.CharField(max_length=255, unique=True)
+    social_id = fields.CharField(max_length=255, unique=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
 # Платформы для заданий
 
 
 class TaskPlatform(Model):
+    class Meta:
+        table = "task_platforms"
+
     platform_id = fields.UUIDField(pk=True, default=uuid.uuid4)
-    name = fields.CharField(max_length=100, unique=True)
+    platform_name = fields.CharField(max_length=100, unique=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
 # Типы заданий
 
 
 class TaskType(Model):
-    # Например: "comment", "subscription"
+    class Meta:
+        table = "task_types"
+
     task_type_id = fields.CharField(pk=True, max_length=50)
-    name = fields.CharField(max_length=255, unique=True)
+    task_type_name = fields.CharField(max_length=255, unique=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
 # Типы требований к заданиям
 
 
 class TaskRequirementType(Model):
-    # Например: "screenshot", "link"
+    class Meta:
+        table = "task_requirement_types"
+
     req_type_id = fields.CharField(pk=True, max_length=50)
-    name = fields.CharField(max_length=255, unique=True)
+    req_name = fields.CharField(max_length=255, unique=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
 # Статусы заданий
 
 
 class TaskStatus(Model):
-    # Например: "active", "completed"
+    class Meta:
+        table = "task_statuses"
+
     status_id = fields.CharField(pk=True, max_length=50)
-    name = fields.CharField(max_length=255, unique=True)
+    status_name = fields.CharField(max_length=255, unique=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
 # Задания
 
 
 class Task(Model):
+    class Meta:
+        table = "tasks"
+
     task_id = fields.UUIDField(pk=True, default=uuid.uuid4)
+    task_name = fields.CharField(max_length=255)
     creator = fields.ForeignKeyField(
-        "models.User", related_name="tasks_created")
+        "models.AdminUser", related_name="tasks_created")
     platform = fields.ForeignKeyField(
         "models.TaskPlatform", related_name="tasks")
     task_type = fields.ForeignKeyField("models.TaskType", related_name="tasks")
@@ -93,6 +131,9 @@ class Task(Model):
 
 
 class TaskAssignment(Model):
+    class Meta:
+        table = "task_assignments"
+
     assignment_id = fields.UUIDField(pk=True, default=uuid.uuid4)
     user = fields.ForeignKeyField("models.User", related_name="tasks")
     task = fields.ForeignKeyField("models.Task", related_name="assignments")
@@ -106,6 +147,9 @@ class TaskAssignment(Model):
 
 
 class TaskVerification(Model):
+    class Meta:
+        table = "task_verifications"
+
     verification_id = fields.UUIDField(pk=True, default=uuid.uuid4)
     task_assignment = fields.ForeignKeyField(
         "models.TaskAssignment", related_name="verifications")
@@ -118,6 +162,9 @@ class TaskVerification(Model):
 
 
 class Transaction(Model):
+    class Meta:
+        table = "transactions"
+
     transaction_id = fields.UUIDField(pk=True, default=uuid.uuid4)
     user = fields.ForeignKeyField("models.User", related_name="transactions")
     amount = fields.DecimalField(max_digits=10, decimal_places=2)
@@ -127,11 +174,15 @@ class Transaction(Model):
         "models.Task", related_name="transactions", null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
-# Лог действий пользователей
 
-
-class UserActivityLog(Model):
+class UserActionLog(Model):
     log_id = fields.UUIDField(pk=True, default=uuid.uuid4)
-    user = fields.ForeignKeyField("models.User", related_name="activity_logs")
+    user = fields.ForeignKeyField("models.User", related_name="logs")
+    # Например: "создал задание", "изменил статус"
     action = fields.CharField(max_length=255)
     timestamp = fields.DatetimeField(auto_now_add=True)
+    task = fields.ForeignKeyField(
+        "models.Task", related_name="logs", null=True)  # Если связано с заданием
+
+    def __str__(self):
+        return f"{self.user.username} - {self.action} - {self.timestamp}"

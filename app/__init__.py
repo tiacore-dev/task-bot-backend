@@ -1,13 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from tortoise.contrib.fastapi import register_tortoise
-from app.logger import setup_logger
+from logger import setup_logger
 from app.routes import register_routes
-from app.config import Settings
+from config import Settings
 
 
 def create_app() -> FastAPI:
-    app = FastAPI()
+    app = FastAPI(title="Task App Backend")
 
     app.add_middleware(
         CORSMiddleware,
@@ -17,8 +17,6 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],  # Разрешаем все заголовки
     )
-
-# Подключение static и templates
 
     app.state.settings = Settings()
    # Конфигурация Tortoise ORM
