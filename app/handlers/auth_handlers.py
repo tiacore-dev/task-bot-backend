@@ -1,8 +1,6 @@
 import hashlib
-import time
 import hmac
 import json
-import jwt
 from fastapi import HTTPException
 from config import Settings
 
@@ -71,12 +69,3 @@ def verify_telegram_auth(telegram_data: dict):
     #     )
 
     return filtered_data
-
-
-# 📌 Генерация JWT-токена
-
-
-def create_jwt_token(user_id):
-    payload = {"user_id": str(
-        user_id), "exp": time.time() + 3600 * 24}  # 24 часа
-    return jwt.encode(payload, JWT_SECRET, algorithm="HS256")

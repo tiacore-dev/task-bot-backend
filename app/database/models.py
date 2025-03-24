@@ -55,11 +55,12 @@ class UserAccount(Model):
     class Meta:
         table = "user_accounts"
 
-    account_id = fields.BigIntField(pk=True)
+    account_id = fields.UUIDField(pk=True, default=uuid.uuid4)
     user = fields.ForeignKeyField("models.User", related_name="accounts")
-    platform = fields.CharField(max_length=100)
+    platform = fields.ForeignKeyField(
+        "models.TaskPlatform", related_name="user_accounts")  # ✅ ForeignKey
     account_name = fields.CharField(max_length=255)
-    social_id = fields.CharField(max_length=255, unique=True)
+    account_platform_id = fields.CharField(max_length=255, unique=True)
     created_at = fields.DatetimeField(auto_now_add=True)
 
 # Платформы для заданий

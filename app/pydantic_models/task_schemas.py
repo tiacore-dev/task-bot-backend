@@ -50,3 +50,7 @@ class TaskUpdateSchema(BaseModel):
     description: Optional[str] = None
     reward: Optional[Decimal] = None
     status_id: Optional[str] = None
+
+
+class AcceptTaskRequest(BaseModel):
+    account_id: UUID4

@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from tortoise.contrib.fastapi import register_tortoise
 from logger import setup_logger
 from app.routes import register_routes
@@ -7,17 +9,18 @@ from config import Settings
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Task App Backend")
-
+    app = FastAPI(title="Task App Backend", redirect_slashes=False)
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
+    app.add_middleware(GZipMiddleware)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Или указать твой Netlify-домен
+        allow_origins=["*"],  # Разрешает запросы отовсюду
         allow_credentials=True,
-        # Разрешаем все методы (POST, GET, OPTIONS и т.д.)
+        # Разрешает все методы (GET, POST, OPTIONS и т.д.)
         allow_methods=["*"],
-        allow_headers=["*"],  # Разрешаем все заголовки
+        # Разрешает все заголовки, включая `ngrok-skip-browser-warning`
+        allow_headers=["*"],
     )
-
     app.state.settings = Settings()
    # Конфигурация Tortoise ORM
     register_tortoise(
