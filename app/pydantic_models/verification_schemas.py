@@ -14,3 +14,4 @@ class TaskVerificationCreateSchema(BaseModel):
     assignment_id: UUID4
     status: str
     details: Optional[str] = None
+    screenshot: Optional[bytes] = None

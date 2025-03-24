@@ -1,10 +1,12 @@
+from uuid import UUID
 from loguru import logger
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from fastapi.responses import JSONResponse
-from app.pydantic_models.task_schemas import TaskSchema, AcceptTaskRequest
+from app.pydantic_models.task_schemas import TaskSchema, AcceptTaskRequest, MyTaskSchema
 from app.pydantic_models.transaction_schemas import TransactionSchema
+from app.s3.s3_manager import AsyncS3Manager
 from app.database.managers.db_manager import get_user_by_telegram_id
-from app.database.models import Task, TaskAssignment, User, Transaction, UserAccount
+from app.database.models import Task, TaskAssignment, User, Transaction, UserAccount, TaskVerification
 
 
 tasks_router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -106,37 +108,75 @@ async def accept_task(
 
 
 @tasks_router.post("/{task_id}/submit")
-async def submit_task(task_id: str, user: User = Depends(get_user_by_telegram_id)):
-    """
-    Отправляет задание на проверку.
-    """
+async def submit_task(
+    task_id: UUID,
+    assignment_id: UUID = Form(...),
+    details: str = Form(None),
+    screenshot: UploadFile = File(...),
+    user: User = Depends(get_user_by_telegram_id)
+):
     try:
-        assignment = await TaskAssignment.get_or_none(task_id=task_id, user_id=user.user_id, status="in_progress")
+        logger.info(
+            f"📤 Пользователь {user.telegram_id} отправляет выполнение задания {task_id} (assignment_id={assignment_id})")
+        assignment = await TaskAssignment.get_or_none(
+            assignment_id=assignment_id
+        )
         if not assignment:
             raise HTTPException(
-                status_code=404, detail="Task not found or already submitted")
+                status_code=404, detail="Task not found or already submitted"
+            )
 
+        # Обновляем статус
         assignment.status = "pending_review"
         await assignment.save()
+
+        # Загрузка скриншота
+        file_bytes = await screenshot.read()
+        filename = screenshot.filename or "screenshot.png"
+
+        s3 = AsyncS3Manager()
+        s3_key = await s3.upload_bytes(file_bytes, user.telegram_id, filename)
+
+        # Создание верификации
+        await TaskVerification.create(
+            task_assignment=assignment,
+            status="pending",
+            details=details,
+            s3_name=s3_key
+        )
+
         return {"message": "Task submitted for review"}
 
     except HTTPException as http_err:
         return JSONResponse(status_code=http_err.status_code, content={"error": http_err.detail})
+
     except Exception as e:
-        logger.error(f"Ошибка при сдаче задания: {str(e)}")
-        return JSONResponse(status_code=500, content={"error": "Internal server error"})
+        logger.exception(f"❌ Ошибка при сдаче задания: {e}")
+        return JSONResponse(status_code=500, content={"error": f"Internal server error: {e}"})
+
 
 # 📌 Получить список моих заданий
 
 
-@tasks_router.get("/my", response_model=list[TaskSchema])
+@tasks_router.get("/my", response_model=list[MyTaskSchema])
 async def get_my_tasks(user: User = Depends(get_user_by_telegram_id)):
     """
     Получает список заданий пользователя.
     """
     try:
-        assignments = await TaskAssignment.filter(user=user.user_id).prefetch_related("task")
-        return [TaskSchema(**assignment.task.__dict__) for assignment in assignments if assignment.task]
+        assignments = await TaskAssignment.filter(user=user.user_id).prefetch_related("task__status").all()
+
+        result = []
+        for a in assignments:
+            task = await a.task  # принудительно получаем task
+            result.append(MyTaskSchema(
+                assignment_id=a.assignment_id,
+                task_id=task.task_id,
+                description=task.description,
+                reward=task.reward,
+                status_id=task.status.status_id,
+            ))
+        return result
 
     except Exception as e:
         logger.error(

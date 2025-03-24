@@ -16,3 +16,8 @@ class Settings:
     PORT = os.getenv('PORT')
     TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
     JWT_SECRET = os.getenv('JWT_SECRET')
+    ENDPOINT_URL = os.getenv('ENDPOINT_URL')
+    REGION_NAME = os.getenv('REGION_NAME')
+    AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID ')
+    AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+    BUCKET_NAME = os.getenv('BUCKET_NAME')

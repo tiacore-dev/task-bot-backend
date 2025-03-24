@@ -45,6 +45,16 @@ class TaskCreateSchema(BaseModel):
 
 # Обновление задания
 
+# Мои задания
+
+
+class MyTaskSchema(BaseModel):
+    assignment_id: UUID4
+    task_id: UUID4
+    description: str
+    reward: int
+    status_id: str
+
 
 class TaskUpdateSchema(BaseModel):
     description: Optional[str] = None

@@ -144,6 +144,7 @@ class TaskAssignment(Model):
     status = fields.CharField(max_length=50, choices=[
                               "in_progress", "pending_review", "completed", "rejected"], default="in_progress")
 
+
 # Проверки заданий
 
 
@@ -154,10 +155,11 @@ class TaskVerification(Model):
     verification_id = fields.UUIDField(pk=True, default=uuid.uuid4)
     task_assignment = fields.ForeignKeyField(
         "models.TaskAssignment", related_name="verifications")
-    check_date = fields.DatetimeField(auto_now_add=True)
+    check_date = fields.DatetimeField(null=True)
     status = fields.CharField(max_length=50, choices=[
                               "pending", "approved", "rejected"], default="pending")
     details = fields.TextField(null=True)
+    s3_name = fields.CharField(max_length=255)
 
 # Начисления пользователям
 
